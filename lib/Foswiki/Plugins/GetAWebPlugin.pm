@@ -11,14 +11,14 @@
 # GNU General Public License for more details, published at
 # http://www.gnu.org/copyleft/gpl.html
 
-package TWiki::Plugins::GetAWebPlugin;
+package Foswiki::Plugins::GetAWebPlugin;
 
 # Always use strict to enforce variable scoping
 use warnings;
 use strict;
 
-require TWiki::Func;    # The plugins API
-require TWiki::Plugins; # For the API version
+require Foswiki::Func;    # The plugins API
+require Foswiki::Plugins; # For the API version
 use Archive::Tar;
 
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION $debug $pluginName $NO_PREFS_IN_TOPIC );
@@ -33,12 +33,12 @@ sub initPlugin {
     my( $topic, $web, $user, $installWeb ) = @_;
 
     # check for Plugins.pm versions
-    if( $TWiki::Plugins::VERSION < 1.026 ) {
-        TWiki::Func::writeWarning( "Version mismatch between $pluginName and Plugins.pm" );
+    if( $Foswiki::Plugins::VERSION < 1.026 ) {
+        Foswiki::Func::writeWarning( "Version mismatch between $pluginName and Plugins.pm" );
         return 0;
     }
 
-    TWiki::Func::registerRESTHandler('getaweb', \&getaweb);
+    Foswiki::Func::registerRESTHandler('getaweb', \&getaweb);
     return 1;
 }
 
@@ -46,7 +46,7 @@ sub initPlugin {
 sub getaweb {
     my ($session) = @_;
    
-    my $query = TWiki::Func::getCgiQuery();
+    my $query = Foswiki::Func::getCgiQuery();
     my $error = '';
     my $webName;
     if ($query->path_info() =~ /^.*\/([^\/]*)\.(tar)$/x) {
@@ -55,7 +55,7 @@ sub getaweb {
     my $outputType = 'application/x-tar';
     my $saveasweb = $query->param('saveasweb' ) || $webName;
     
-    $error .= qq{web "$webName" doesn't exist (or you lack permission to see it)<br/>} unless TWiki::Func::webExists( $webName );
+    $error .= qq{web "$webName" doesn't exist (or you lack permission to see it)<br/>} unless Foswiki::Func::webExists( $webName );
     
     # TODO: use oops stuff
     if ( $error ne '' ) 
@@ -67,11 +67,11 @@ sub getaweb {
         
     
     my $tar = Archive::Tar->new() or die $!;
-    foreach my $topicName (TWiki::Func::getTopicList($webName))
+    foreach my $topicName (Foswiki::Func::getTopicList($webName))
     {
         #export topic
-        my $rawTopic = TWiki::Func::readTopicText( $webName, $topicName);
-        next if (!TWiki::Func::checkAccessPermission( 'VIEW', TWiki::Func::getWikiName(), $rawTopic, $topicName, $webName));
+        my $rawTopic = Foswiki::Func::readTopicText( $webName, $topicName);
+        next if (!Foswiki::Func::checkAccessPermission( 'VIEW', Foswiki::Func::getWikiName(), $rawTopic, $topicName, $webName));
         $tar->add_data( "data/$saveasweb/$topicName.txt", $rawTopic );  # or die ???
         #TODO: ,v file (get store obj, then look at its innards :( )
         my $handler = $session->{store}->_getHandler($webName, $topicName);
@@ -83,13 +83,13 @@ sub getaweb {
             $tar->add_data( "data/$saveasweb/$topicName.txt,v", $contents );  # or die ???
         }
         #attachments
-        my( $meta, $text ) = TWiki::Func::readTopic($webName, $topicName);
+        my( $meta, $text ) = Foswiki::Func::readTopic($webName, $topicName);
         my @attachments = $meta->find( 'FILEATTACHMENT' );
         foreach my $a ( @attachments ) {
 #            try {
-                my $data = TWiki::Func::readAttachment($webName, $topicName, $a->{name} );
+                my $data = Foswiki::Func::readAttachment($webName, $topicName, $a->{name} );
                 $tar->add_data( "pub/$saveasweb/".$a->{name}, $data );  # or die ???
-#            } catch TWiki::AccessControlException with {
+#            } catch Foswiki::AccessControlException with {
 #            };
             #TODO: ,v file
             my $handler = $session->{store}->_getHandler($webName, $topicName, $a->{name});
