@@ -20,6 +20,8 @@ use strict;
 require Foswiki::Func;    # The plugins API
 require Foswiki::Plugins; # For the API version
 use Archive::Tar;
+use Error qw(:try);
+
 
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION $debug $pluginName $NO_PREFS_IN_TOPIC );
 
@@ -86,30 +88,29 @@ sub getaweb {
         my( $meta, $text ) = Foswiki::Func::readTopic($webName, $topicName);
         my @attachments = $meta->find( 'FILEATTACHMENT' );
         foreach my $a ( @attachments ) {
-#            try {
-                my $data = Foswiki::Func::readAttachment($webName, $topicName, $a->{name} );
-                $tar->add_data( "pub/$saveasweb/".$a->{name}, $data );  # or die ???
-#            } catch Foswiki::AccessControlException with {
-#            };
-            #TODO: ,v file
             my $handler = $session->{store}->_getHandler($webName, $topicName, $a->{name});
-            $handler->init();
-            if (-e $handler->{rcsFile}) {
-                local( $/, *FH ) ;
-                open( FH, '<', $handler->{rcsFile} ) or die $!;
-                my $contents = <FH>;
-                $tar->add_data( "pub/$saveasweb/$topicName/".$a->{name}.",v", $contents );  # or die ???
-            }
+            next unless ($handler->storedDataExists());
+            try {
+                my $data = Foswiki::Func::readAttachment($webName, $topicName, $a->{name} );
+                $tar->add_data( "pub/$saveasweb/$topicName/".$a->{name}, $data );  # or die ???
+                #my $handler = $session->{store}->_getHandler($webName, $topicName, $a->{name});
+                $handler->init();
+                if (-e $handler->{rcsFile}) {
+                    local( $/, *FH ) ;
+                    open( FH, '<', $handler->{rcsFile} ) or die $!;
+                    my $contents = <FH>;
+                    $tar->add_data( "pub/$saveasweb/$topicName/".$a->{name}.",v", $contents );  # or die ???
+                }
+            } catch Foswiki::AccessControlException with {
+            };
+
         }
     }
 
-    # sets response header
-    print $query->header(-type=>$outputType, -expire=>'now');
-    my $io = IO::Handle->new() or die $!;
-    $io->fdopen(fileno(STDOUT), "w") or die $!;
-    $tar->write( $io ) or die $!;
-    $io->close();
-   
+    $session->{response}->header(
+        -type => $outputType, -expire=>'now' );
+    $session->{response}->body($tar->write());
+      
    return;
 }
 
