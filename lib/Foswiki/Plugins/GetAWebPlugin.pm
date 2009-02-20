@@ -2,7 +2,7 @@
 # Copyright SvenDowideit@fosiki.com
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
-# as published by the Free Software Foundation; either version 2
+# as published by the Free Software Foundation; either version 3
 # of the License, or (at your option) any later version.
 #
 # This program is distributed in the hope that it will be useful,
@@ -24,7 +24,7 @@ use Archive::Tar;
 use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION $debug $pluginName $NO_PREFS_IN_TOPIC );
 
 $VERSION = '$Rev$';
-$RELEASE = 'TWiki-4.2';
+$RELEASE = 'Foswiki-1.0';
 $SHORTDESCRIPTION = 'Create a zipped copy of a whole Web for backup or offline reading ';
 $NO_PREFS_IN_TOPIC = 1;
 $pluginName = 'GetAWebPlugin';
