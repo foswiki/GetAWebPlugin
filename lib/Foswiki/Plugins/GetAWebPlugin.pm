@@ -17,101 +17,118 @@ package Foswiki::Plugins::GetAWebPlugin;
 use warnings;
 use strict;
 
-require Foswiki::Func;    # The plugins API
-require Foswiki::Plugins; # For the API version
+require Foswiki::Func;       # The plugins API
+require Foswiki::Plugins;    # For the API version
 use Archive::Tar;
 use Error qw(:try);
 
-
-use vars qw( $VERSION $RELEASE $SHORTDESCRIPTION $debug $pluginName $NO_PREFS_IN_TOPIC );
+use vars
+  qw( $VERSION $RELEASE $SHORTDESCRIPTION $debug $pluginName $NO_PREFS_IN_TOPIC );
 
 $VERSION = '$Rev$';
 $RELEASE = 'Foswiki-1.0';
-$SHORTDESCRIPTION = 'Create a zipped copy of a whole Web for backup or offline reading ';
+$SHORTDESCRIPTION =
+  'Create a zipped copy of a whole Web for backup or offline reading ';
 $NO_PREFS_IN_TOPIC = 1;
-$pluginName = 'GetAWebPlugin';
+$pluginName        = 'GetAWebPlugin';
 
 sub initPlugin {
-    my( $topic, $web, $user, $installWeb ) = @_;
+    my ( $topic, $web, $user, $installWeb ) = @_;
 
     # check for Plugins.pm versions
-    if( $Foswiki::Plugins::VERSION < 1.026 ) {
-        Foswiki::Func::writeWarning( "Version mismatch between $pluginName and Plugins.pm" );
+    if ( $Foswiki::Plugins::VERSION < 1.026 ) {
+        Foswiki::Func::writeWarning(
+            "Version mismatch between $pluginName and Plugins.pm");
         return 0;
     }
 
-    Foswiki::Func::registerRESTHandler('getaweb', \&getaweb);
+    Foswiki::Func::registerRESTHandler( 'getaweb', \&getaweb );
     return 1;
 }
 
-
 sub getaweb {
     my ($session) = @_;
-   
+
     my $query = Foswiki::Func::getCgiQuery();
     my $error = '';
     my $webName;
-    if ($query->path_info() =~ /^.*\/([^\/]*)\.(tar)$/x) {
+    if ( $query->path_info() =~ /^.*\/([^\/]*)\.(tar)$/x ) {
         $webName = $1;
-    } 
+    }
     my $outputType = 'application/x-tar';
-    my $saveasweb = $query->param('saveasweb' ) || $webName;
-    
-    $error .= qq{web "$webName" doesn't exist (or you lack permission to see it)<br/>} unless Foswiki::Func::webExists( $webName );
-    
+    my $saveasweb = $query->param('saveasweb') || $webName;
+
+    $error .=
+      qq{web "$webName" doesn't exist (or you lack permission to see it)<br/>}
+      unless Foswiki::Func::webExists($webName);
+
     # TODO: use oops stuff
-    if ( $error ne '' ) 
-    {
+    if ( $error ne '' ) {
         print "Content-type: text/html\n\n";
         print $error;
         return;
     }
-        
-    
+
     my $tar = Archive::Tar->new() or die $!;
-    foreach my $topicName (Foswiki::Func::getTopicList($webName))
-    {
+    foreach my $topicName ( Foswiki::Func::getTopicList($webName) ) {
+
         #export topic
-        my $rawTopic = Foswiki::Func::readTopicText( $webName, $topicName);
-        next if (!Foswiki::Func::checkAccessPermission( 'VIEW', Foswiki::Func::getWikiName(), $rawTopic, $topicName, $webName));
-        $tar->add_data( "data/$saveasweb/$topicName.txt", $rawTopic );  # or die ???
-        #TODO: ,v file (get store obj, then look at its innards :( )
-        my $handler = $session->{store}->_getHandler($webName, $topicName);
+        my $rawTopic = Foswiki::Func::readTopicText( $webName, $topicName );
+        next
+          if (
+            !Foswiki::Func::checkAccessPermission(
+                'VIEW',    Foswiki::Func::getWikiName(),
+                $rawTopic, $topicName,
+                $webName
+            )
+          );
+        $tar->add_data( "data/$saveasweb/$topicName.txt", $rawTopic )
+          ;    # or die ???
+               #TODO: ,v file (get store obj, then look at its innards :( )
+        my $handler = $session->{store}->_getHandler( $webName, $topicName );
         $handler->init();
-        if (-e $handler->{rcsFile}) {
-	    local( $/, *FH ) ;
-	    open( FH, '<', $handler->{rcsFile} ) or die $!;
-	    my $contents = <FH>;
-            $tar->add_data( "data/$saveasweb/$topicName.txt,v", $contents );  # or die ???
+        if ( -e $handler->{rcsFile} ) {
+            local ( $/, *FH );
+            open( FH, '<', $handler->{rcsFile} ) or die $!;
+            my $contents = <FH>;
+            $tar->add_data( "data/$saveasweb/$topicName.txt,v", $contents )
+              ;    # or die ???
         }
+
         #attachments
-        my( $meta, $text ) = Foswiki::Func::readTopic($webName, $topicName);
-        my @attachments = $meta->find( 'FILEATTACHMENT' );
-        foreach my $a ( @attachments ) {
-            my $handler = $session->{store}->_getHandler($webName, $topicName, $a->{name});
-            next unless ($handler->storedDataExists());
+        my ( $meta, $text ) = Foswiki::Func::readTopic( $webName, $topicName );
+        my @attachments = $meta->find('FILEATTACHMENT');
+        foreach my $a (@attachments) {
+            my $handler =
+              $session->{store}
+              ->_getHandler( $webName, $topicName, $a->{name} );
+            next unless ( $handler->storedDataExists() );
             try {
-                my $data = Foswiki::Func::readAttachment($webName, $topicName, $a->{name} );
-                $tar->add_data( "pub/$saveasweb/$topicName/".$a->{name}, $data );  # or die ???
-                #my $handler = $session->{store}->_getHandler($webName, $topicName, $a->{name});
+                my $data =
+                  Foswiki::Func::readAttachment( $webName, $topicName,
+                    $a->{name} );
+                $tar->add_data( "pub/$saveasweb/$topicName/" . $a->{name},
+                    $data );    # or die ???
+                 #my $handler = $session->{store}->_getHandler($webName, $topicName, $a->{name});
                 $handler->init();
-                if (-e $handler->{rcsFile}) {
-                    local( $/, *FH ) ;
+                if ( -e $handler->{rcsFile} ) {
+                    local ( $/, *FH );
                     open( FH, '<', $handler->{rcsFile} ) or die $!;
                     my $contents = <FH>;
-                    $tar->add_data( "pub/$saveasweb/$topicName/".$a->{name}.",v", $contents );  # or die ???
+                    $tar->add_data(
+                        "pub/$saveasweb/$topicName/" . $a->{name} . ",v",
+                        $contents );    # or die ???
                 }
-            } catch Foswiki::AccessControlException with {
-            };
+            }
+            catch Foswiki::AccessControlException with {};
 
         }
     }
 
-    $session->{response}->header(
-        -type => $outputType, -expire=>'now' );
-    $session->{response}->body($tar->write());
-      
-   return;
+    $session->{response}->header( -type => $outputType, -expire => 'now' );
+    $session->{response}->body( $tar->write() );
+
+    return;
 }
 
 1;
